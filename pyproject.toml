@@ -1,0 +1,25 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "llm-playground-cli"
+version = "0.1.0"
+description = "LLM Playground CLI"
+authors = [
+    {name = "Sourav Paul", email = "souravpaul@protonmail.com"},
+]
+requires-python = ">=3.11"
+dependencies = [
+    "google-genai>=1.0",
+    "pydantic>=2.0",
+    "python-dotenv",
+    "rich",
+    "pytest",
+]
+
+[project.scripts]
+playground = "playground.cli:main"
+
+[tool.hatch.build.sources]
+"src" = ""
