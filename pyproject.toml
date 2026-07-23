@@ -19,7 +19,7 @@ dependencies = [
 ]
 
 [project.scripts]
-playground = "playground.cli:main"
+playground = "llm_playground_cli.cli:main"
 
 [tool.hatch.build.sources]
 "src" = ""
