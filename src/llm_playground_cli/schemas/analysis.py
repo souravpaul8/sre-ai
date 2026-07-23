@@ -30,14 +30,30 @@ class FileAnalysis(BaseModel):
 # ── 2. For the `convert` command (shell commands → documented YAML/Markdown) ──
 
 class CommandDoc(BaseModel):
-    command: str = Field(description="The original shell command")
-    description: str = Field(description="Plain-English explanation of what this command does")
-    flags: list[str] = Field(description="Explanation of each flag used, e.g. '-l: long listing format'")
-    example_output: str = Field(description="Example of what the command typically outputs")
-    category: str = Field(description="Category like 'file management', 'networking', 'process control'")
+    command: str = Field(
+        description="The original shell command"
+        )
+    description: str = Field(
+        description="Plain-English explanation of what this command does"
+        )
+    flags: list[str] = Field(
+        description="Explanation of each flag used, e.g. '-l: long listing format'"
+        )
+    example_output: str = Field(
+        description="Example of what the command typically outputs"
+        )
+    category: str = Field(
+        description="Category like 'file management', 'networking', 'process control'"
+        )
 
 
 class ShellDocumentation(BaseModel):
-    title: str = Field(description="A short title for this collection of commands")
-    commands: list[CommandDoc] = Field(description="List of documented commands")
-    prerequisites: list[str] = Field(description="Tools or permissions required to run these commands")
+    title: str = Field(
+        description="A short title for this collection of commands"
+        )
+    commands: list[CommandDoc] = Field(
+        description="List of documented commands"
+        )
+    prerequisites: list[str] = Field(
+        description="Tools or permissions required to run these commands"
+        )
