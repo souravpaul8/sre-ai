@@ -3,7 +3,7 @@ import sys
 from dataclasses import replace
 
 from llm_playground_cli.config import get_default_config
-from llm_playground_cli.commands import summarize, explain, generate, convert
+from llm_playground_cli.commands import summarize, explain, generate, convert, ask
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -68,6 +68,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     convert_parser.add_argument("file", help="Path to the shell script to document")
 
+    ask_parser = subparsers.add_parser(
+        "ask",
+        help="Ask a technical question — auto-routes to the right expert",
+    )
+    ask_parser.add_argument("question", nargs="?", help="The question to ask (optional)")
+
     return parser
 
 
@@ -95,6 +101,9 @@ def main() -> None:
 
     elif args.command == "convert":
         convert.run(args.file, config, override_temp)
+    
+    elif args.command == "ask":
+        ask.run(config, args.question)
 
     else:
         parser.print_help()

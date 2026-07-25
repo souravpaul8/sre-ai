@@ -22,8 +22,16 @@ def get_api_key() -> str:
     
 def get_default_config() -> GenerationConfig:
     return GenerationConfig(
-        model=os.getenv("DEFAULT_MODEL", "gemini-2.0-flash-lite"),
+        model=os.getenv("DEFAULT_MODEL", "gemini-3.5-flash-lite"),
         temperature=float(os.getenv("DEFAULT_TEMPERATURE", "0.3")),
         max_output_tokens=int(os.getenv("DEFAULT_MAX_OUTPUT_TOKENS", "2048")),
         top_p=float(os.getenv("DEFAULT_TOP_P", "0.95"))
+    )
+
+def get_router_config() -> GenerationConfig:
+    return GenerationConfig(
+        model=os.getenv("ROUTER_MODEL", "gemini-3.5-flash-lite"),
+        temperature=0.0,     
+        max_output_tokens=256,
+        top_p=1.0,
     )

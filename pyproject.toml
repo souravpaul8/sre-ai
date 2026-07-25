@@ -16,6 +16,7 @@ dependencies = [
     "python-dotenv",
     "rich",
     "pytest",
+    "pyyaml",
 ]
 
 [project.scripts]
