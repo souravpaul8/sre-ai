@@ -1,7 +1,8 @@
 from google import genai
 from google.genai import types
-from typing import Iterator, Type, TypeVar
+from typing import Iterator, Type, TypeVar, Callable
 from pydantic import BaseModel
+from llm_playground_cli.tools.base import ToolResult
 import time
 
 from llm_playground_cli.config import get_api_key, GenerationConfig
@@ -101,3 +102,95 @@ class LLMClient:
 
         instance = schema.model_validate_json(response.text)
         return instance, input_tokens, output_tokens, latency
+    
+    def agent_loop(
+        self,
+        prompt: str,
+        system: str,
+        tools: list,
+        on_tool_call: Callable | None = None, 
+        max_iteration: int = 3,
+    ) -> tuple[str, list[dict]]:
+        # ── Build Gemini tool declarations ────────────────────────
+        function_declarations = []
+        tool_map = {}
+        for tool in tools:
+            function_declarations.append(
+                types.FunctionDeclaration(
+                    name=tool.name,
+                    description=tool.description,
+                    parameters=tool.parameters,
+                )
+            )
+            tool_map[tool.name] = tool
+            cfg = self._build_generate_config()
+            cfg.tools = [types.Tool(function_declarations=function_declarations)]
+            if system:
+                cfg.system_instruction = system
+            
+        # ── Build initial conversation ────────────────────────────
+        contents = [
+            types.Content(
+                role="user",
+                parts=[types.Part.from_text(text=prompt)],
+            )
+        ]
+
+        tool_call_log = []
+
+        for iteration in range(10):
+            response = self.client.models.generate_content(
+                model=self.config.model,
+                contents=contents,
+                config=cfg,
+            )
+            model_content = response.candidates[0].content
+            contents.append(model_content)
+            # Check if the LLM wants to call tools
+            function_calls = [
+                part.function_call
+                for part in model_content.parts
+                if part.function_call
+            ]
+            if not function_calls:
+                # No tool calls — LLM gave a text answer. We're done.
+                text_parts = [
+                    part.text for part in model_content.parts if part.text
+                ]
+                return "".join(text_parts), tool_call_log
+            # ── Execute each tool call ────────────────────────────
+            response_parts = []
+            for fc in function_calls:
+                name = fc.name
+                args = dict(fc.args) if fc.args else {}
+                # Notify the UI
+                if on_tool_call:
+                    on_tool_call(name, args)
+                # Look up and execute
+                tool = tool_map.get(name)
+                if tool:
+                    result = tool.execute(**args)
+                    result_data = result.data if result.success else f"Error: {result.error}"
+                else:
+                    result_data = f"Error: Unknown tool '{name}'"
+                    result = ToolResult(success=False, data="", error=f"Unknown tool: {name}")
+                tool_call_log.append({
+                    "name": name,
+                    "args": args,
+                    "success": result.success if tool else False,
+                    "result_preview": result_data[:200],
+                })
+                response_parts.append(
+                    types.Part.from_function_response(
+                        name=name,
+                        response={"result": result_data},
+                    )
+                )
+            # ── Feed tool results back to the LLM ────────────────
+            contents.append(
+                types.Content(parts=response_parts)
+            )
+        return "Error: Maximum tool call iterations reached.", tool_call_log
+
+
+        

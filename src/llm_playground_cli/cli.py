@@ -3,7 +3,7 @@ import sys
 from dataclasses import replace
 
 from llm_playground_cli.config import get_default_config
-from llm_playground_cli.commands import summarize, explain, generate, convert, ask
+from llm_playground_cli.commands import summarize, explain, generate, convert, ask, agent
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -68,11 +68,19 @@ def build_parser() -> argparse.ArgumentParser:
     )
     convert_parser.add_argument("file", help="Path to the shell script to document")
 
+    # ── ask ─────────────────────────────────────────────────────────────────────
     ask_parser = subparsers.add_parser(
         "ask",
         help="Ask a technical question — auto-routes to the right expert",
     )
     ask_parser.add_argument("question", nargs="?", help="The question to ask (optional)")
+
+    # ── agent ─────────────────────────────────────────────────────────────────
+    agent_parser = subparsers.add_parser(
+        "agent",
+        help="Interactive SRE agent with tool calling (reads files, runs kubectl, etc.)",
+    )
+
 
     return parser
 
@@ -104,6 +112,9 @@ def main() -> None:
     
     elif args.command == "ask":
         ask.run(config, args.question)
+        
+    elif args.command == "agent":
+        agent.run(config)
 
     else:
         parser.print_help()
