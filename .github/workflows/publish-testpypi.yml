@@ -1,0 +1,61 @@
+name: Publish to TestPyPI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build distribution 📦
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install build tool
+        run: python3 -m pip install --upgrade build
+
+      - name: Build sdist and wheel
+        run: python3 -m build
+
+      - name: Store distribution packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+
+  publish-to-testpypi:
+    name: Publish to TestPyPI 🚀
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/sre-ai
+    permissions:
+      id-token: write  # Mandatory for Trusted Publishing (OIDC)
+
+    steps:
+      - name: Download distribution packages
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+
+      - name: Publish package distributions to TestPyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          skip-existing: true
+          # If using an API Token instead of OIDC, uncomment below:
+          # password: ${{ secrets.TEST_PYPI_API_TOKEN }}

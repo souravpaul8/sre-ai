@@ -3,9 +3,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "llm-playground-cli"
+name = "sre-buddy"
 version = "0.1.0"
-description = "LLM Playground CLI"
+description = "Your debugging buddy for SRE works."
 authors = [
     {name = "Sourav Paul", email = "souravpaul@protonmail.com"},
 ]
@@ -28,6 +28,7 @@ dependencies = [
 
 [project.scripts]
 playground = "llm_playground_cli.cli:main"
+sre-buddy = "llm_playground_cli.cli:main"
 
-[tool.hatch.build.sources]
-"src" = ""
+[tool.hatch.build.targets.wheel]
+packages = ["src/llm_playground_cli"]
