@@ -1,6 +1,47 @@
 import subprocess
+import os
 from pathlib import Path
 from llm_playground_cli.tools.base import Tool, ToolResult
+from llm_playground_cli.config import get_default_config
+from llm_playground_cli.client import LLMClient
+from llm_playground_cli.rag.orchestrator import RAGEngine
+from llm_playground_cli.rag.qdrant_db import QdrantVectorDB
+from llm_playground_cli.rag.cross_encoder_reranker import CrossEncoderReRanker
+
+# Global instance so we don't reload the models/DB on every tool call
+_rag_engine = None
+
+def _search_knowledge_base(query: str) -> ToolResult:
+    """Search the vector database."""
+    global _rag_engine
+    try:
+        if _rag_engine is None:
+            client = LLMClient(get_default_config())
+            
+            # Setup dependencies for the Orchestrator
+            qdrant_path = os.path.join(os.path.expanduser("~"), ".sre-ai-rag.db")
+            vector_db = QdrantVectorDB(path=qdrant_path)
+            reranker = CrossEncoderReRanker()
+            
+            _rag_engine = RAGEngine(
+                client=client, 
+                vector_db=vector_db, 
+                reranker=reranker
+            )
+            
+        results = _rag_engine.search(query, top_k=3)
+        if not results:
+            return ToolResult(success=True, data="No relevant information found in the knowledge base.")
+        
+        formatted = []
+        for i, res in enumerate(results):
+            source = res['metadata'].get('source', 'Unknown')
+            formatted.append(f"--- Result {i+1} (Source: {source}) ---\n{res['content']}")
+            
+        return ToolResult(success=True, data="\n\n".join(formatted))
+    except Exception as e:
+        return ToolResult(success=False, data="", error=str(e))
+
 
 def _read_file(file_path: str) -> ToolResult:
     try:
@@ -135,5 +176,24 @@ run_shell_tool = Tool(
     function=_run_shell,
     is_dangerous=True,   # ← requires user confirmation
 )
+search_kb_tool = Tool(
+    name="search_knowledge_base",
+    description=(
+        "Search the local knowledge base and documentation for answers. "
+        "Use this tool when the user asks a conceptual question, how to do something, "
+        "or asks about internal guidelines, runbooks, or specific architectures."
+    ),
+    parameters={
+        "type": "OBJECT",
+        "properties": {
+            "query": {
+                "type": "STRING",
+                "description": "The search query to look up in the vector database.",
+            },
+        },
+        "required": ["query"],
+    },
+    function=_search_knowledge_base,
+)
 
-ALL_BUILTIN_TOOLS = [read_file_tool, list_files_tool, run_shell_tool]
+ALL_BUILTIN_TOOLS = [read_file_tool, list_files_tool, run_shell_tool, search_kb_tool]

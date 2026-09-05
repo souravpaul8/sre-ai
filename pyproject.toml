@@ -18,6 +18,12 @@ dependencies = [
     "pytest",
     "pyyaml",
     "kubernetes",
+    "numpy",
+    "rank-bm25",
+    "qdrant-client",
+    "sentence-transformers",
+    "pypdf",
+    "langchain-text-splitters",
 ]
 
 [project.scripts]

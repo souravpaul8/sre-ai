@@ -1,3 +1,4 @@
+from ast import List
 from google import genai
 from google.genai import types
 from typing import Iterator, Type, TypeVar, Callable
@@ -5,7 +6,7 @@ from pydantic import BaseModel
 from llm_playground_cli.tools.base import ToolResult
 import time
 
-from llm_playground_cli.config import get_api_key, GenerationConfig
+from llm_playground_cli.config import get_api_key, GenerationConfig, get_rag_config
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -29,6 +30,22 @@ class LLMClient:
             contents=prompt
         )
         return response.total_tokens
+    
+    def get_embedding(self, text: str) -> List[float]:
+        """Convert a single text string into a vector."""
+        response = self.client.models.embed_content(
+            model=get_rag_config().embedding_model,
+            contents=text
+        )
+        return response.embeddings[0].values
+    
+    def get_embeddings(self, texts: list[str]) -> list[list[float]]:
+        """Batch convert multiple texts into vectors (faster for ingestion)."""
+        response = self.client.models.embed_content(
+            model=get_rag_config().embedding_model,
+            contents=texts
+        )
+        return [emb.values for emb in response.embeddings]
 
     def stream(
         self,
@@ -109,7 +126,7 @@ class LLMClient:
         system: str,
         tools: list,
         on_tool_call: Callable | None = None, 
-        max_iteration: int = 3,
+        max_iterations: int = 3,
     ) -> tuple[str, list[dict]]:
         # ── Build Gemini tool declarations ────────────────────────
         function_declarations = []
@@ -138,7 +155,7 @@ class LLMClient:
 
         tool_call_log = []
 
-        for iteration in range(10):
+        for iteration in range(max_iterations):
             response = self.client.models.generate_content(
                 model=self.config.model,
                 contents=contents,

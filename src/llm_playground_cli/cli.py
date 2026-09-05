@@ -3,7 +3,7 @@ import sys
 from dataclasses import replace
 
 from llm_playground_cli.config import get_default_config
-from llm_playground_cli.commands import summarize, explain, generate, convert, ask, agent
+from llm_playground_cli.commands import summarize, explain, generate, convert, ask, agent, ingest
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -81,6 +81,26 @@ def build_parser() -> argparse.ArgumentParser:
         help="Interactive SRE agent with tool calling (reads files, runs kubectl, etc.)",
     )
 
+    # ── ingest ─────────────────────────────────────────────────────────────────
+    ingest_parser = subparsers.add_parser(
+        "ingest",
+        help="Ingest a document (.pdf, .md, .txt) or text into the knowledge base",
+    )
+    ingest_group = ingest_parser.add_mutually_exclusive_group(required=True)
+    ingest_group.add_argument(
+        "--file", "-f",
+        help="Path to file to ingest (.pdf, .md, .txt)",
+    )
+    ingest_group.add_argument(
+        "--text", "-t",
+        help="Raw text snippet to ingest",
+    )
+    ingest_parser.add_argument(
+        "--collection",
+        default="sre_docs_v2",
+        help="Collection name in Qdrant (default: sre_docs_v2)",
+    )
+
 
     return parser
 
@@ -115,6 +135,14 @@ def main() -> None:
         
     elif args.command == "agent":
         agent.run(config)
+    
+    elif args.command == "ingest":
+        ingest.run(
+            config=config,
+            file_path=args.file,
+            text=args.text,
+            collection_name=args.collection
+        )
 
     else:
         parser.print_help()
