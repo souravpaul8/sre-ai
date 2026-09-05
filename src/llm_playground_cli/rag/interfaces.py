@@ -17,6 +17,11 @@ class VectorDB(ABC):
         """Search and return the payloads of the closest matches."""
         pass
 
+    @abstractmethod
+    def get_all_documents(self, collection_name: str, limit: int = 1000) -> List[Dict[str, Any]]:
+        """Retrieve stored document payloads from collection."""
+        pass
+
 class ReRanker(ABC):
     @abstractmethod
     def rerank(self, query: str, documents:List[Dict[str, Any]], top_k: int) -> List[Dict[str, Any]]:

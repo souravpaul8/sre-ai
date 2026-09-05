@@ -1,8 +1,32 @@
+import os
+import logging
+import warnings
 from dataclasses import dataclass
 from dotenv import load_dotenv
-import os
 
 load_dotenv()
+
+# ── Logging & Environment Setup ───────────────────────────────────────────────
+
+def _configure_environment() -> None:
+    """Configure environment variables and suppress 3rd-party warnings."""
+    os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", os.getenv("HF_HUB_DISABLE_PROGRESS_BARS", "1"))
+    os.environ.setdefault("HF_HUB_VERBOSITY", os.getenv("HF_HUB_VERBOSITY", "error"))
+    os.environ.setdefault("TRANSFORMERS_VERBOSITY", os.getenv("TRANSFORMERS_VERBOSITY", "error"))
+    os.environ.setdefault("TOKENIZERS_PARALLELISM", os.getenv("TOKENIZERS_PARALLELISM", "false"))
+
+    warnings.filterwarnings("ignore", module="huggingface_hub.*")
+    warnings.filterwarnings("ignore", message=".*unauthenticated requests.*")
+    warnings.filterwarnings("ignore", message=".*HF_TOKEN.*")
+
+    logging.getLogger("transformers").setLevel(logging.ERROR)
+    logging.getLogger("sentence_transformers").setLevel(logging.ERROR)
+    logging.getLogger("huggingface_hub").setLevel(logging.ERROR)
+
+_configure_environment()
+
+
+# ── LLM Generation Configurations ─────────────────────────────────────────────
 
 @dataclass
 class GenerationConfig:
@@ -10,6 +34,7 @@ class GenerationConfig:
     temperature: float
     max_output_tokens: int
     top_p: float
+
 
 def get_api_key() -> str:
     key = os.getenv("GOOGLE_API_KEY")
@@ -19,6 +44,7 @@ def get_api_key() -> str:
             "Copy .env.example → .env and add your key from aistudio.google.com"
         )
     return key
+
     
 def get_default_config() -> GenerationConfig:
     return GenerationConfig(
@@ -28,6 +54,7 @@ def get_default_config() -> GenerationConfig:
         top_p=float(os.getenv("DEFAULT_TOP_P", "0.95"))
     )
 
+
 def get_router_config() -> GenerationConfig:
     return GenerationConfig(
         model=os.getenv("ROUTER_MODEL", "gemini-3.5-flash-lite"),
@@ -36,6 +63,9 @@ def get_router_config() -> GenerationConfig:
         top_p=1.0
     )
 
+
+# ── RAG Configurations ────────────────────────────────────────────────────────
+
 @dataclass
 class RAGConfig:
     collection_name: str
@@ -43,6 +73,7 @@ class RAGConfig:
     reranker_model_name: str
     reranker_max_length: int
     embedding_model: str
+
 
 def get_rag_config() -> RAGConfig:
     return RAGConfig(

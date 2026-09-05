@@ -1,3 +1,4 @@
+import atexit
 import subprocess
 import os
 from pathlib import Path
@@ -8,24 +9,35 @@ from llm_playground_cli.rag.orchestrator import RAGEngine
 from llm_playground_cli.rag.qdrant_db import QdrantVectorDB
 from llm_playground_cli.rag.cross_encoder_reranker import CrossEncoderReRanker
 
-# Global instance so we don't reload the models/DB on every tool call
+# Global instances so we don't reload the models/DB on every tool call
 _rag_engine = None
+_vector_db = None
+
+def _cleanup_rag():
+    global _vector_db, _rag_engine
+    if _vector_db and hasattr(_vector_db, "client"):
+        try:
+            _vector_db.client.close()
+        except Exception:
+            pass
+
+atexit.register(_cleanup_rag)
 
 def _search_knowledge_base(query: str) -> ToolResult:
     """Search the vector database."""
-    global _rag_engine
+    global _rag_engine, _vector_db
     try:
         if _rag_engine is None:
             client = LLMClient(get_default_config())
             
             # Setup dependencies for the Orchestrator
             qdrant_path = os.path.join(os.path.expanduser("~"), ".sre-ai-rag.db")
-            vector_db = QdrantVectorDB(path=qdrant_path)
+            _vector_db = QdrantVectorDB(path=qdrant_path)
             reranker = CrossEncoderReRanker()
             
             _rag_engine = RAGEngine(
                 client=client, 
-                vector_db=vector_db, 
+                vector_db=_vector_db, 
                 reranker=reranker
             )
             

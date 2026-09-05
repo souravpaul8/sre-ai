@@ -43,3 +43,21 @@ class QdrantVectorDB(VectorDB):
             } 
             for hit in results.points
         ]
+
+    def get_all_documents(self, collection_name: str, limit: int = 1000) -> List[Dict[str, Any]]:
+        """Retrieve stored document payloads from collection using scroll."""
+        if not self.client.collection_exists(collection_name):
+            return []
+        points, _ = self.client.scroll(
+            collection_name=collection_name,
+            limit=limit,
+            with_payload=True,
+            with_vectors=False
+        )
+        return [
+            {
+                "content": p.payload.get("content", ""),
+                "metadata": p.payload.get("metadata", {})
+            }
+            for p in points if p.payload and "content" in p.payload
+        ]
