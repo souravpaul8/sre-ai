@@ -41,7 +41,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: testpypi
-      url: https://test.pypi.org/p/sre-ai
+      url: https://test.pypi.org/p/sre-buddy
     permissions:
       id-token: write  # Mandatory for Trusted Publishing (OIDC)
 

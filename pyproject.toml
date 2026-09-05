@@ -4,12 +4,13 @@ build-backend = "hatchling.build"
 
 [project]
 name = "sre-buddy"
-version = "0.1.0"
+version = "0.1.1"
 description = "Your debugging buddy for SRE works."
+readme = "README.md"
+requires-python = ">=3.11"
 authors = [
     {name = "Sourav Paul", email = "souravpaul@protonmail.com"},
 ]
-requires-python = ">=3.11"
 dependencies = [
     "google-genai>=1.0",
     "pydantic>=2.0",
