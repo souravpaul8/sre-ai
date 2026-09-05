@@ -180,21 +180,31 @@ class LLMClient:
             for fc in function_calls:
                 name = fc.name
                 args = dict(fc.args) if fc.args else {}
-                # Notify the UI
-                if on_tool_call:
-                    on_tool_call(name, args)
-                # Look up and execute
                 tool = tool_map.get(name)
-                if tool:
+
+                # Guardrail: Check confirmation via on_tool_call callback
+                allowed = True
+                if on_tool_call:
+                    # If callback returns explicit False, the user denied execution
+                    callback_result = on_tool_call(name, args)
+                    if callback_result is False:
+                        allowed = False
+
+                # Look up and execute
+                if not allowed:
+                    result_data = f"Action cancelled: Execution of dangerous tool '{name}' was denied by user."
+                    result = ToolResult(success=False, data="", error="Denied by user")
+                elif tool:
                     result = tool.execute(**args)
                     result_data = result.data if result.success else f"Error: {result.error}"
                 else:
                     result_data = f"Error: Unknown tool '{name}'"
                     result = ToolResult(success=False, data="", error=f"Unknown tool: {name}")
+
                 tool_call_log.append({
                     "name": name,
                     "args": args,
-                    "success": result.success if tool else False,
+                    "success": result.success if (tool and allowed) else False,
                     "result_preview": result_data[:200],
                 })
                 response_parts.append(

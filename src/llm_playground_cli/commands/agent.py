@@ -94,7 +94,7 @@ def run(config: GenerationConfig) -> None:
     all_tools = registry.get_all()
 
     # Callback: called each time the LLM invokes a tool
-    def on_tool_call(name: str, args: dict) -> None:
+    def on_tool_call(name: str, args: dict) -> bool:
         tool = registry.get(name)
         args_str = ", ".join(f'{k}="{v}"' for k, v in args.items())
 
@@ -106,13 +106,14 @@ def run(config: GenerationConfig) -> None:
                 choices=["y", "n"],
                 default="n",
             )
-            if confirm != "y":
-                # Monkey-patch the tool temporarily to return a denial
-                # (we'll handle this more cleanly in Step 7)
+            if confirm.strip().lower() != "y":
                 console.print("  [red]Denied by user.[/red]")
-                return
+                return False
+            console.print("  [green]Approved by user.[/green]")
+            return True
         else:
             console.print(f"\n  [dim]🔧 {name}({args_str})[/dim]")
+            return True
 
     console.print()
 
