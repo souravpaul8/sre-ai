@@ -34,6 +34,7 @@ class GenerationConfig:
     temperature: float
     max_output_tokens: int
     top_p: float
+    agent_max_iterations: int = 10
 
 
 def get_api_key() -> str:
@@ -51,7 +52,8 @@ def get_default_config() -> GenerationConfig:
         model=os.getenv("DEFAULT_MODEL", "gemini-3.5-flash-lite"),
         temperature=float(os.getenv("DEFAULT_TEMPERATURE", "0.3")),
         max_output_tokens=int(os.getenv("DEFAULT_MAX_OUTPUT_TOKENS", "2048")),
-        top_p=float(os.getenv("DEFAULT_TOP_P", "0.95"))
+        top_p=float(os.getenv("DEFAULT_TOP_P", "0.95")),
+        agent_max_iterations=int(os.getenv("AGENT_MAX_ITERATIONS", "10")),
     )
 
 

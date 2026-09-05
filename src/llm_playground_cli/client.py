@@ -128,12 +128,13 @@ class LLMClient:
         system: str,
         tools: list,
         on_tool_call: Callable | None = None, 
-        max_iterations: int = 10,
+        max_iterations: int | None = None,
         initial_contents: list | None = None,
         initial_tool_log: list | None = None,
         initial_seen_hashes: set | None = None,
         on_checkpoint: Callable[[list, list, set], None] | None = None,
     ) -> tuple[str, list[dict], list, set]:
+        limit = max_iterations if max_iterations is not None else getattr(self.config, "agent_max_iterations", 10)
         # ── Build Gemini tool declarations ────────────────────────
         function_declarations = []
         tool_map = {}
@@ -177,7 +178,7 @@ class LLMClient:
         if on_checkpoint:
             on_checkpoint(contents, tool_call_log, seen_call_hashes)
 
-        for iteration in range(max_iterations):
+        for iteration in range(limit):
             iter_start = time.time()
             response = self.client.models.generate_content(
                 model=self.config.model,
@@ -326,7 +327,12 @@ class LLMClient:
             if on_checkpoint:
                 on_checkpoint(contents, tool_call_log, seen_call_hashes)
 
-        return "Error: Maximum tool call iterations reached.", tool_call_log, contents, seen_call_hashes
+        limit_msg = (
+            f"Error: Maximum tool call iterations ({limit}) reached without completing the task.\n"
+            f"To allow more steps for complex investigations, increase AGENT_MAX_ITERATIONS in your .env file "
+            f"(e.g. AGENT_MAX_ITERATIONS={limit + 5}) or set it in your environment."
+        )
+        return limit_msg, tool_call_log, contents, seen_call_hashes
 
 
         
