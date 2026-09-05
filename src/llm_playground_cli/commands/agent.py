@@ -22,6 +22,7 @@ from llm_playground_cli.config import GenerationConfig
 from llm_playground_cli.tools.registry import ToolRegistry
 from llm_playground_cli.tools.primitives import ALL_BUILTIN_TOOLS
 from llm_playground_cli.tools.k8s import ALL_K8S_TOOLS
+from llm_playground_cli.agent.state import StateManager
 
 console = Console()
 
@@ -115,6 +116,26 @@ def run(config: GenerationConfig) -> None:
             console.print(f"\n  [dim]🔧 {name}({args_str})[/dim]")
             return True
 
+    state_manager = StateManager()
+    contents = []
+    tool_call_history = []
+    seen_call_hashes = set()
+
+    # Check for existing checkpoint
+    if state_manager.exists():
+        loaded = state_manager.load()
+        if loaded:
+            prev_contents, prev_logs, prev_hashes = loaded
+            console.print(f"\n[bold yellow]📂 Found previous session with {len(prev_logs)} recorded tool action(s).[/bold yellow]")
+            if Confirm.ask("  [yellow]Resume previous session?[/yellow]", default=True):
+                contents = prev_contents
+                tool_call_history = prev_logs
+                seen_call_hashes = prev_hashes
+                console.print(f"  [green]✓ Resumed session. Total history: {len(contents)} messages, {len(tool_call_history)} tool actions.[/green]")
+            else:
+                state_manager.clear()
+                console.print("  [dim]Previous session cleared. Starting fresh.[/dim]")
+
     console.print()
 
     # ── Interactive Loop ──────────────────────────────────────
@@ -130,24 +151,36 @@ def run(config: GenerationConfig) -> None:
         if question.strip().lower() in ("exit", "quit", "q"):
             console.print("[dim]Goodbye![/dim]")
             break
+        if question.strip().lower() in ("/clear", "/reset"):
+            state_manager.clear()
+            contents = []
+            tool_call_history = []
+            seen_call_hashes = set()
+            console.print("[bold green]✓ Agent context and state checkpoint cleared.[/bold green]\n")
+            continue
 
         start = time.time()
 
-        # Run the agentic loop
-        answer, tool_calls = client.agent_loop(
+        # Run the agentic loop with persistent state
+        answer, turn_tool_calls, contents, seen_call_hashes = client.agent_loop(
             prompt=question,
             system=AGENT_SYSTEM_PROMPT,
             tools=all_tools,
             on_tool_call=on_tool_call,
+            initial_contents=contents,
+            initial_tool_log=tool_call_history,
+            initial_seen_hashes=seen_call_hashes,
+            on_checkpoint=lambda c, l, h: state_manager.save(c, l, h),
         )
 
+        tool_call_history = turn_tool_calls
         latency = round(time.time() - start, 2)
 
         # Display the answer
         console.print(f"\n[bold cyan]Agent[/bold cyan]: {answer}")
 
         # Show Trajectory Trace & Observability Table
-        if tool_calls:
+        if tool_call_history:
             trace_table = Table(title="Trajectory Trace", border_style="dim cyan", show_lines=True)
             trace_table.add_column("Step", justify="center", style="bold yellow")
             trace_table.add_column("Tool", style="bold cyan")
@@ -156,7 +189,7 @@ def run(config: GenerationConfig) -> None:
             trace_table.add_column("Time (s)", justify="right")
             trace_table.add_column("Tokens (In/Out)", justify="right", style="dim")
 
-            for tc in tool_calls:
+            for tc in tool_call_history:
                 args_str = json.dumps(tc["args"])
                 status_icon = "[green]✓ Success[/green]" if tc["success"] else "[red]✗ Failed[/red]"
                 exec_time = f"{tc.get('execution_time_s', 0.0):.3f}s"

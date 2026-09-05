@@ -129,7 +129,11 @@ class LLMClient:
         tools: list,
         on_tool_call: Callable | None = None, 
         max_iterations: int = 10,
-    ) -> tuple[str, list[dict]]:
+        initial_contents: list | None = None,
+        initial_tool_log: list | None = None,
+        initial_seen_hashes: set | None = None,
+        on_checkpoint: Callable[[list, list, set], None] | None = None,
+    ) -> tuple[str, list[dict], list, set]:
         # ── Build Gemini tool declarations ────────────────────────
         function_declarations = []
         tool_map = {}
@@ -147,18 +151,31 @@ class LLMClient:
             if system:
                 cfg.system_instruction = system
             
-        # ── Build initial conversation ────────────────────────────
-        contents = [
-            types.Content(
-                role="user",
-                parts=[types.Part.from_text(text=prompt)],
+        # ── Build initial conversation (incorporating history if resuming) ──
+        if initial_contents:
+            contents = list(initial_contents)
+            contents.append(
+                types.Content(
+                    role="user",
+                    parts=[types.Part.from_text(text=prompt)],
+                )
             )
-        ]
+        else:
+            contents = [
+                types.Content(
+                    role="user",
+                    parts=[types.Part.from_text(text=prompt)],
+                )
+            ]
 
-        tool_call_log = []
-        seen_call_hashes = set()
+        tool_call_log = list(initial_tool_log) if initial_tool_log else []
+        seen_call_hashes = set(initial_seen_hashes) if initial_seen_hashes else set()
         total_input_tokens = 0
         total_output_tokens = 0
+
+        # Initial checkpoint
+        if on_checkpoint:
+            on_checkpoint(contents, tool_call_log, seen_call_hashes)
 
         for iteration in range(max_iterations):
             iter_start = time.time()
@@ -190,7 +207,10 @@ class LLMClient:
                 text_parts = [
                     part.text for part in model_content.parts if part.text
                 ]
-                return "".join(text_parts), tool_call_log
+                final_answer = "".join(text_parts)
+                if on_checkpoint:
+                    on_checkpoint(contents, tool_call_log, seen_call_hashes)
+                return final_answer, tool_call_log, contents, seen_call_hashes
 
             # ── Helper for executing a single tool call ─────────────
             def execute_single_tool(fc, step_num):
@@ -301,7 +321,12 @@ class LLMClient:
             contents.append(
                 types.Content(parts=response_parts)
             )
-        return "Error: Maximum tool call iterations reached.", tool_call_log
+
+            # Checkpoint after tools execution step
+            if on_checkpoint:
+                on_checkpoint(contents, tool_call_log, seen_call_hashes)
+
+        return "Error: Maximum tool call iterations reached.", tool_call_log, contents, seen_call_hashes
 
 
         
